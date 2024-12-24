@@ -28,8 +28,7 @@ const routes = [
         {path:'/user/UserInfo', component: UserInfoVue},
         {path:'/user/UpdateProfile', component: UpdateProfileVue},
         {path:'/user/ChangePassword', component: ChangePasswordVue},
-        {path:'/user/UpdateAvatar', component: UpdateAvatarVue}
-        
+        {path:'/user/UpdateAvatar', component: UpdateAvatarVue},
     ]}
 ]
 

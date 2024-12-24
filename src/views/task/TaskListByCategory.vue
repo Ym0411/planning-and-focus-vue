@@ -5,9 +5,12 @@ import { Edit, Delete, Check, Timer } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import emitter from '@/utils/eventBus'
+import CountdownTimer from '@/components/CountdownTimer.vue'
 
 const route = useRoute()
 const taskList = ref([])
+const countdownVisible = ref(false)
+const currentTask = ref(null)
 
 const fetchTaskList = async () => {
     try {
@@ -136,6 +139,17 @@ const getQuadrantLabel = (quadrant) => {
             return '未知'
     }
 }
+
+// 添加处理计时器点击的方法
+const handleTimer = (row) => {
+    currentTask.value = row
+    countdownVisible.value = true
+}
+
+// 添加计时完成的处理方法
+const handleTimerComplete = () => {
+    ElMessage.success(`任务"${currentTask.value?.title}"的计时已完成！`)
+}
 </script>
 
 <template>
@@ -198,6 +212,11 @@ const getQuadrantLabel = (quadrant) => {
                 <el-empty description="暂无未完成任务" />
             </template>
         </el-table>
+        <CountdownTimer
+            v-model:visible="countdownVisible"
+            :task-title="currentTask?.title"
+            @timer-complete="handleTimerComplete"
+        />
     </el-card>
 </template>
 

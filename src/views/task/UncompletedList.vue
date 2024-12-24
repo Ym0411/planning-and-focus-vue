@@ -4,6 +4,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { Edit, Delete, Check, Timer } from '@element-plus/icons-vue'
 import emitter from '@/utils/eventBus'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import CountdownTimer from '@/components/CountdownTimer.vue'
 
 const uncompletedTaskList = ref([])
 
@@ -117,6 +118,15 @@ const getQuadrantLabel = (quadrant) => {
             return '未知'
     }
 }
+
+// 添加计时器相关变量
+const countdownVisible = ref(false)
+const currentTask = ref(null)
+// 处理计时器点击
+const handleTimer = (row) => {
+  currentTask.value = row
+  countdownVisible.value = true
+}
 </script>
 
 <template>
@@ -185,6 +195,11 @@ const getQuadrantLabel = (quadrant) => {
                 <el-empty description="暂无未完成任务" />
             </template>
         </el-table>
+        <CountdownTimer
+          v-model:visible="countdownVisible"
+          :task-title="currentTask?.title"
+          @timer-complete="handleTimerComplete"
+        />
     </el-card>
 </template>
 

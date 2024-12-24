@@ -14,7 +14,7 @@ import {
     EditPen
 } from '@element-plus/icons-vue'
 import avatar from '@/assets/default.png'
-import { ref, onMounted, onUnmounted, onBeforeMount } from 'vue'
+import { ref, onMounted, onUnmounted, onBeforeMount, nextTick } from 'vue'
 import { createCategoryService, getCategoryListService } from '@/api/category.js'
 import { createTaskService, getUncompletedListByCategoryService, updateTaskService } from '@/api/task.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -23,6 +23,9 @@ import emitter from '@/utils/eventBus'
 //富文本编辑器
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import CountdownTimer from '@/components/CountdownTimer.vue'
+import { Timer } from '@element-plus/icons-vue'
+import { getUserInfoService, deleteAccountService } from '@/api/user.js'
 
 const categories = ref([
   { id: 'default', name: '未分类', icon: Files }
@@ -233,9 +236,8 @@ onUnmounted(() => {
 })
 
 
-import {getUserInfoService} from '@/api/user.js'
 import {useUserInfoStore} from '@/stores/userInfo.js'
-import useTokenStore from '@/stores/token.js'
+import {useTokenStore} from '@/stores/token.js'
 const userInfoStore = useUserInfoStore();
 const tokenStore = useTokenStore();
 //调用函数，获取用户详细信息
@@ -287,9 +289,10 @@ const handleCommand = (command) => {
                 type: 'info'
             })
         })
-    }else{
-        router.push('/user/'+command)
     }
+    // else{
+    //     router.push('/user/'+command)
+    // }
 
 
     if (command === 'userInfo') {
@@ -303,8 +306,40 @@ const handleCommand = (command) => {
     }
 
     
-    if (command === 'deleteAccount') {
-        router.push('/user/DeleteAccount')
+    if (command === 'deactivate') {
+        ElMessageBox.confirm('确定要注销账号吗？注销后账号将被锁定且不可恢复登录！', '警告', {
+            confirmButtonText: '确定注销',
+            cancelButtonText: '取消',
+            type: 'warning',
+            confirmButtonClass: 'el-button--danger'
+        }).then(async () => {
+            try {
+                const res = await deleteAccountService()
+                if (res.code === 200) {
+                    // 修改顺序：先跳转，再清除数据
+                    await nextTick()
+                    await router.push('/login')
+                    // 然后再清除数据
+                    tokenStore.removeToken()
+                    userInfoStore.clearUserInfo()
+                    ElMessage.success('账号已注销')
+                } else {
+                    throw new Error(res.message || '注销失败')
+                }
+            } catch (error) {
+                ElMessage.error(error.message || '注销失败，请稍后重试')
+                // 失败时，确保用户留在当前页面
+                if (router.currentRoute.value.path === '/') {
+                    router.push('/task/UncompletedList')
+                }
+            }
+        }).catch(() => {
+            ElMessage.info('已取消注销')
+            // 取消时，确保用户留在当前页面
+            if (router.currentRoute.value.path === '/') {
+                router.push('/task/UncompletedList')
+            }
+        })
     }
     if (command === 'avatar') {
         router.push('/user/UpdateAvatar')
@@ -330,6 +365,22 @@ onBeforeMount(() => {
     return
   }
 })
+
+// 在其他 ref 变量后添加
+const countdownVisible = ref(false)
+const currentTask = ref({
+  title: '专注时间'  // 默认标题
+})
+
+// 添加处理计时器点击的方法
+const handleFloatingTimer = () => {
+  countdownVisible.value = true
+}
+
+// 添加计时完成的处理方法
+const handleTimerComplete = () => {
+  ElMessage.success('专注时间结束！')
+}
 
 </script>
 
@@ -419,7 +470,7 @@ onBeforeMount(() => {
                             <el-dropdown-item command="avatar" :icon="Crop">更换头像</el-dropdown-item>
                             <el-dropdown-item command="changePassword" :icon="EditPen">修改密码</el-dropdown-item>
                             <el-dropdown-item command="logout" :icon="SwitchButton">退出登录</el-dropdown-item>
-                            <el-dropdown-item command="deleteAccount" :icon="Delete">注销账号</el-dropdown-item>
+                            <el-dropdown-item command="deactivate" :icon="Delete">注销账号</el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
                 </el-dropdown>
@@ -441,13 +492,27 @@ onBeforeMount(() => {
                         <el-input v-model="categoryModel.name" minlength="1" maxlength="10"></el-input>
                     </el-form-item>
                     <el-form-item label="分类颜色" prop="color">
-                        <el-input v-model="categoryModel.color" minlength="1" maxlength="15"></el-input>
+                        <el-color-picker
+                            v-model="categoryModel.color"
+                            :show-alpha="false"
+                            format="hex"
+                            :predefine="[
+                                '#ff4500',
+                                '#ff8c00',
+                                '#ffd700',
+                                '#90ee90',
+                                '#00ced1',
+                                '#1e90ff',
+                                '#c71585',
+                                '#ff69b4'
+                            ]"
+                        />
                     </el-form-item>
                 </el-form>
                 <template #footer>
                     <span class="dialog-footer">
                         <el-button @click="categoryDialogVisible = false">取消</el-button>
-                        <el-button type="primary" @click="createCategory"> 确认 </el-button>
+                        <el-button type="primary" @click="createCategory">确认</el-button>
                     </span>
                 </template>
             </el-dialog>
@@ -552,6 +617,22 @@ onBeforeMount(() => {
 
         </el-container>
     </el-container>
+
+    <div class="floating-timer">
+        <el-button
+            type="primary"
+            :icon="Timer"
+            circle
+            @click="handleFloatingTimer"
+            title="开始专注"
+        />
+    </div>
+
+    <CountdownTimer
+        v-model:visible="countdownVisible"
+        :task-title="currentTask.title"
+        @timer-complete="handleTimerComplete"
+    />
 </template>
 
 <style lang="scss" scoped>
@@ -645,6 +726,20 @@ onBeforeMount(() => {
   width: 100%;
   :deep(.ql-editor) {
     min-height: 200px;
+  }
+}
+
+.floating-timer {
+  position: fixed;
+  right: 40px;
+  bottom: 40px;
+  z-index: 999;
+
+  .el-button {
+    background-color: #ff6b6b;
+    width: 60px;
+    height: 60px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   }
 }
 
